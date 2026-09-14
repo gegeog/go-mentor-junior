@@ -1,13 +1,32 @@
-# Restaurant Service
+# Restaurant service
 
-This directory is owned by the student assigned to the Restaurant Service track.
+Manages resraurants, menus, price and availbility.
 
-Replace this template with implementation documentation that explains:
+## Prerequisites
 
-- prerequisites;
-- configuration;
-- how to build and run the service;
-- how to format, vet, and test it;
-- important implementation decisions.
+* Go 1.27+
+* Make
 
-The required behavior is defined by the [project specification](../../docs/project.md) and the current lesson.
+## Configuration
+
+| Variable        | Default | Description              |
+|-----------------|---------|--------------------------|
+| `HTTP_ADDR`     |    —    | HTTP listen address (required), e.g. `:8080` |
+| `LOGGER_LEVEL`  | `DEBUG` | Log level: `DEBUG`, `INFO`, `WARN`, `ERROR`  |
+
+Configuration is read from `.env` file in the service root.
+
+## Running locally 
+
+```
+cp .env.example .env # fill HTTP_ADDR
+make run
+```
+
+## Commands
+   Command                                                                          | Description
+  ----------------------------------------------------------------------------------|----------------------------------------------------------------------------------
+   make run                                                                         | Run the service
+   make build                                                                       | Build the binary
+   make fmt                                                                         | Format source code
+   make vet                                                                         | Run static analysis
