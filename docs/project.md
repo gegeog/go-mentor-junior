@@ -65,6 +65,8 @@ WAITING_FOR_PREPARATION → IN_DELIVERY
 
 `IN_DELIVERY` is terminal in this project. Courier assignment and delivery confirmation are not modeled.
 
+> **Review note for Lesson 3:** These are two distinct moments. When a Restaurant accepts a `PENDING` Order, the Order becomes `ACCEPTED` and a Delivery is created in `WAITING_FOR_PREPARATION`. When the Restaurant later marks a `PREPARING` Order ready, the Order becomes `READY_FOR_PICKUP` and that existing Delivery moves to `IN_DELIVERY`. Please review these transitions before publishing Lesson 3; this note does not add a new status or change the rules above.
+
 ## API conventions
 
 - JSON request and response bodies.
