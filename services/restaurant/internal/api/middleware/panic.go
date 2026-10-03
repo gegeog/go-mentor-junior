@@ -1,23 +1,22 @@
 package middleware
 
 import (
-	"log/slog"
 	"net/http"
 
-	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/logger"
+	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/api/response"
+	"go.uber.org/zap"
 )
 
-func Panic() Middleware {
+func Panic(logger *zap.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			log := logger.FromContext(ctx)
-
 			defer func() {
 				if p := recover(); p != nil {
-					log.Error(
+					response.PanicResponse(
+						logger,
+						w,
+						p,
 						"during handle HTTP request got panic",
-						slog.Any("error", p),
 					)
 				}
 			}()

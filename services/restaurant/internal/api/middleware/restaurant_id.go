@@ -1,41 +1,67 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
+	"uuid"
 
+	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/api/request"
 	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/api/response"
 	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/domain"
-	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/logger"
+	"go.uber.org/zap"
 )
 
-func RestaurantID() Middleware {
+func RestaurantID(logger *zap.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			log := logger.FromContext(ctx)
-			responseHandler := response.NewHTTPResponseHandler(log, w)
-
-			restaurantID := r.Header.Get("X-Restaurant-ID")
-			if restaurantID == "" {
-				responseHandler.ErrorResponse(
+			headerRaw := r.Header.Get(request.HeaderRestaurantID)
+			if headerRaw == "" {
+				response.ErrorResponse(
+					logger,
+					w,
 					domain.ErrInvalidRestaurant,
-					"failed to get X-Restaurant-ID from request header",
+					fmt.Sprintf(
+						"failed to get %s from request header",
+						request.HeaderRestaurantID,
+					),
 				)
 
 				return
 			}
 
-			if restaurantID != r.PathValue("restaurant_id") {
-				responseHandler.ErrorResponse(
+			headerID, err := uuid.Parse(headerRaw)
+			if err != nil || headerID == uuid.Nil() {
+				response.ErrorResponse(
+					logger,
+					w,
 					domain.ErrInvalidRestaurant,
-					"X-Restaurant-ID provided in headers not match with path value",
+					fmt.Sprintf("invalid %s", request.HeaderRestaurantID),
+				)
+
+				return
+			}
+
+			pathID, err := request.ParseRestaurantID(r)
+			if err != nil {
+				response.ErrorResponse(logger, w, err, "invalid restaurant_id")
+				return
+			}
+
+			if headerID != pathID {
+				response.ErrorResponse(
+					logger,
+					w,
+					domain.ErrRestaurantAccessDenied,
+					fmt.Sprintf(
+						"%s provided in headers not match with path value",
+						request.HeaderRestaurantID,
+					),
 				)
 
 				return
 			}
 
 			next.ServeHTTP(w, r)
-
 		})
 	}
 }

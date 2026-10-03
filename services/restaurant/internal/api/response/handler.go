@@ -3,17 +3,12 @@ package response
 import (
 	"encoding/json"
 	"errors"
-	"log/slog"
+	"fmt"
 	"net/http"
 
 	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/domain"
-	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/logger"
+	"go.uber.org/zap"
 )
-
-type HTTPResponseHandler struct {
-	log *logger.Logger
-	rw  http.ResponseWriter
-}
 
 type ErrorDetail struct {
 	Code    string         `json:"code"`
@@ -21,75 +16,65 @@ type ErrorDetail struct {
 	Details map[string]any `json:"details"`
 }
 
-type ErrorResponse struct {
+type ErrorResponseDTO struct {
 	Error ErrorDetail `json:"error"`
 }
 
-func NewHTTPResponseHandler(
-	log *logger.Logger,
+func JSONResponse(
+	log *zap.Logger,
 	rw http.ResponseWriter,
-) *HTTPResponseHandler {
-	return &HTTPResponseHandler{
-		log: log,
-		rw:  rw,
-	}
-}
-
-func (h *HTTPResponseHandler) JSONResponse(
 	responseBody any,
 	statusCode int,
 ) {
-	h.rw.WriteHeader(statusCode)
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(statusCode)
 
-	if err := json.NewEncoder(h.rw).Encode(responseBody); err != nil {
-		h.log.Error("write HTTP response", slog.Any("error", err))
+	if err := json.NewEncoder(rw).Encode(responseBody); err != nil {
+		log.Error("write HTTP response", zap.Error(err))
 	}
 }
 
-func (h *HTTPResponseHandler) ErrorResponse(
+func ErrorResponse(
+	log *zap.Logger,
+	rw http.ResponseWriter,
 	err error,
 	msg string,
 ) {
 	var (
 		statusCode int
-		logFunc    func(string, ...any)
 		code       string
 	)
+
+	logFunc := log.Warn
 
 	switch {
 	case errors.Is(err, domain.ErrInvalidMenuItem):
 		code = "INVALID_MENU_ITEM"
 		statusCode = http.StatusBadRequest
-		logFunc = h.log.Warn
 	case errors.Is(err, domain.ErrInvalidRestaurant):
 		code = "INVALID_RESTAURANT"
 		statusCode = http.StatusBadRequest
-		logFunc = h.log.Warn
 	case errors.Is(err, domain.ErrRestaurantAccessDenied):
 		code = "RESTAURANT_ACCESS_DENIED"
 		statusCode = http.StatusForbidden
-		logFunc = h.log.Warn
 	case errors.Is(err, domain.ErrRestaurantNotFound):
 		code = "RESTAURANT_NOT_FOUND"
 		statusCode = http.StatusNotFound
-		logFunc = h.log.Warn
 	case errors.Is(err, domain.ErrMenuItemNotFound):
 		code = "MENU_ITEM_NOT_FOUND"
 		statusCode = http.StatusNotFound
-		logFunc = h.log.Warn
 	case errors.Is(err, domain.ErrCurrencyMismatch):
 		code = "CURRENCY_MISMATCH"
 		statusCode = http.StatusUnprocessableEntity
-		logFunc = h.log.Warn
 	default:
 		code = "INTERNAL_SERVER_ERROR"
 		statusCode = http.StatusInternalServerError
-		logFunc = h.log.Error
+		logFunc = log.Error
 	}
 
-	logFunc(msg, slog.Any("error", err))
+	logFunc(msg, zap.Error(err))
 
-	response := ErrorResponse{
+	response := ErrorResponseDTO{
 		Error: ErrorDetail{
 			Code:    code,
 			Message: msg,
@@ -97,5 +82,15 @@ func (h *HTTPResponseHandler) ErrorResponse(
 		},
 	}
 
-	h.JSONResponse(response, statusCode)
+	JSONResponse(log, rw, response, statusCode)
+}
+
+func PanicResponse(
+	log *zap.Logger,
+	rw http.ResponseWriter,
+	p any,
+	msg string,
+) {
+	err := fmt.Errorf("unexpected panic: %v", p)
+	ErrorResponse(log, rw, err, msg)
 }

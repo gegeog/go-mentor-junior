@@ -1,6 +1,10 @@
-package restaurants_repository
+package memory
 
-import "github.com/gegeog/go-mentor-junior/services/restaurant/internal/domain"
+import (
+	"uuid"
+
+	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/domain"
+)
 
 type RestaurantModel struct {
 	Name              string
@@ -21,7 +25,7 @@ func restaurantModelFromDomain(restaurantDomain domain.Restaurant) RestaurantMod
 	return RestaurantModel{
 		Name:              restaurantDomain.Name,
 		AcceptingOrders:   restaurantDomain.AcceptingOrders,
-		MinimumOrderMinor: restaurantDomain.MinimumOrderMminor,
+		MinimumOrderMinor: restaurantDomain.MinimumOrderMinor,
 		Currency:          restaurantDomain.Currency,
 	}
 }
@@ -37,7 +41,7 @@ func menuItemModelFromDomain(itemDomain domain.MenuItem) MenuItemModel {
 }
 
 func restaurantDomainFromModel(
-	id string,
+	id uuid.UUID,
 	model RestaurantModel,
 ) domain.Restaurant {
 	return domain.NewRestaurant(
@@ -50,7 +54,7 @@ func restaurantDomainFromModel(
 }
 
 func itemDomainFromModel(
-	id string,
+	id uuid.UUID,
 	model MenuItemModel,
 ) domain.MenuItem {
 	return domain.NewMenuItem(

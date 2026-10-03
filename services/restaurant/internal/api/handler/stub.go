@@ -3,11 +3,11 @@ package handler
 import (
 	"net/http"
 
-	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/app"
+	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/api"
 )
 
-func GetKuberStubRoutes() []app.Route {
-	return []app.Route{
+func GetKuberStubRoutes() []api.Route {
+	return []api.Route{
 		{
 			Path:    "/livez",
 			Method:  http.MethodGet,
