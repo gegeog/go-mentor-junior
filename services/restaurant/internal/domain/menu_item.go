@@ -1,20 +1,25 @@
 package domain
 
 import (
-	"fmt"
+	"uuid"
 )
 
 type MenuItem struct {
-	ID          string
+	ID          uuid.UUID
 	Name        string
 	Description string
-	PriceMinor  int64
-	Currency    string
-	Available   bool
+	//TODO: касательно точности...вроде нам будет достаточно инта, типа мы не переполним его позициями из меню??
+	// ну и вычисления над целыми числами проводим, а отображем десятичные.
+	// в общем я не вижу проблем при использовании plain int64, подскажи плиз
+	PriceMinor int64
+	Currency   string
+	Available  bool
 }
 
 func NewMenuItem(
-	id, name, description string,
+	id uuid.UUID,
+	name string,
+	description string,
 	price int64,
 	currency string,
 	available bool,
@@ -27,20 +32,4 @@ func NewMenuItem(
 		Currency:    currency,
 		Available:   available,
 	}
-}
-
-func (i MenuItem) Validate() error {
-	if i.ID == "" {
-		return fmt.Errorf("invalid item id: %w", ErrInvalidMenuItem)
-	}
-
-	if i.Name == "" {
-		return fmt.Errorf("invalid item name: %w", ErrInvalidMenuItem)
-	}
-
-	if i.PriceMinor < 0 {
-		return fmt.Errorf("invalid item price: %w", ErrInvalidMenuItem)
-	}
-
-	return nil
 }

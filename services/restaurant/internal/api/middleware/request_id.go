@@ -2,8 +2,7 @@ package middleware
 
 import (
 	"net/http"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 func RequestID() Middleware {
@@ -11,7 +10,7 @@ func RequestID() Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestID := r.Header.Get(requestIDHeader)
 			if requestID == "" {
-				requestID = uuid.NewString()
+				requestID = uuid.New().String()
 			}
 
 			r.Header.Set(requestIDHeader, requestID)
