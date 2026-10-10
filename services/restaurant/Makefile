@@ -29,3 +29,18 @@ coverage:
 generate:
 	@go generate ${SERVICE_ROOT}/internal/api/handler/restaurant.go
 	@go generate ${SERVICE_ROOT}/internal/service/restaurants.go
+
+migrate-up:
+	@docker compose run --rm migrator up
+
+migrate-down:
+	@docker compose run --rm migrator down
+
+env-up:
+	@docker compose up -d restaurants-postgres
+
+env-down:
+	@docker compose down restaurants-postgres
+
+env-cleanup:
+	@docker compose down -v restaurants-postgres
