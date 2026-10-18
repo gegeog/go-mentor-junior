@@ -122,16 +122,57 @@ func (r *RestaurantsRepository) PutMenuItem(
 		PriceMinor:  itemDomain.PriceMinor,
 		Currency:    itemDomain.Currency,
 		Available:   itemDomain.Available,
-		RestaurantID: pgtype.UUID{
+		ID_2: pgtype.UUID{
 			Bytes: restaurantID,
 			Valid: true,
 		},
 	})
 
+	// todo: нужно ли такую большую проверку делать на уровне репо?
+	// если я уже по сути делаю её на уровне сервиса
+	// я как будто оверинжинирю тут..
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.MenuItem{}, fmt.Errorf("put menu item %s: %w", itemDomain.ID, domain.ErrInvalidRestaurant)
+			restaurant, restaurantErr := r.GetRestaurant(ctx, restaurantID)
+
+			if restaurantErr != nil {
+				return domain.MenuItem{}, fmt.Errorf(
+					"put menu item %s: %w", itemDomain.ID, restaurantErr,
+				)
+			}
+			if restaurant.Currency != itemDomain.Currency {
+				return domain.MenuItem{}, fmt.Errorf(
+					"put menu item %s: %w", itemDomain.ID, domain.ErrCurrencyMismatch,
+				)
+			}
+
+			_, getErr := r.queries.GetMenuItem(ctx, GetMenuItemParams{
+				RestaurantID: pgtype.UUID{Bytes: restaurantID, Valid: true},
+				ID:           pgtype.UUID{Bytes: itemDomain.ID, Valid: true},
+			})
+
+			if errors.Is(getErr, pgx.ErrNoRows) {
+				return domain.MenuItem{}, fmt.Errorf(
+					"put menu item %s: %w",
+					itemDomain.ID,
+					domain.ErrInvalidRestaurant,
+				)
+			}
+			if getErr != nil {
+				return domain.MenuItem{}, fmt.Errorf(
+					"get menu item %s after failed put: %w",
+					itemDomain.ID,
+					getErr,
+				)
+			}
+
+			return domain.MenuItem{}, fmt.Errorf(
+				"put menu item %s: %w",
+				itemDomain.ID,
+				domain.ErrCurrencyMismatch,
+			)
 		}
+
 		return domain.MenuItem{}, fmt.Errorf("put item: %s: %w", itemDomain.ID, err)
 	}
 

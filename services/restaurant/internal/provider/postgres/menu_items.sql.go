@@ -89,27 +89,32 @@ func (q *Queries) GetMenuItems(ctx context.Context, restaurantID pgtype.UUID) ([
 }
 
 const putMenuItem = `-- name: PutMenuItem :one
-INSERT INTO restaurants.menu_item
-  (id, name, description, price_minor, currency, available, restaurant_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO restaurants.menu_item (
+    id, name, description, price_minor,
+    currency, available, restaurant_id
+)
+SELECT $1, $2, $3, $4, $5, $6, restaurant.id
+FROM restaurants.restaurant AS restaurant
+WHERE restaurant.id = $7
+  AND restaurant.currency = $5
 ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  description = EXCLUDED.description,
-  price_minor = EXCLUDED.price_minor,
-  available = EXCLUDED.available
+    name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    price_minor = EXCLUDED.price_minor,
+    available = EXCLUDED.available
 WHERE restaurants.menu_item.restaurant_id = EXCLUDED.restaurant_id
-RETURNING
-  id, name, description, price_minor, currency, available, restaurant_id
+AND restaurants.menu_item.currency = EXCLUDED.currency
+RETURNING id, name, description, price_minor, currency, available, restaurant_id
 `
 
 type PutMenuItemParams struct {
-	ID           pgtype.UUID
-	Name         string
-	Description  string
-	PriceMinor   int64
-	Currency     string
-	Available    bool
-	RestaurantID pgtype.UUID
+	ID          pgtype.UUID
+	Name        string
+	Description string
+	PriceMinor  int64
+	Currency    string
+	Available   bool
+	ID_2        pgtype.UUID
 }
 
 func (q *Queries) PutMenuItem(ctx context.Context, arg PutMenuItemParams) (RestaurantsMenuItem, error) {
@@ -120,7 +125,7 @@ func (q *Queries) PutMenuItem(ctx context.Context, arg PutMenuItemParams) (Resta
 		arg.PriceMinor,
 		arg.Currency,
 		arg.Available,
-		arg.RestaurantID,
+		arg.ID_2,
 	)
 	var i RestaurantsMenuItem
 	err := row.Scan(
