@@ -58,7 +58,7 @@ func main() {
 
 	logger.Info("initializing router")
 	mux := api.NewRouter()
-	mux.RegisterRoutes(handler.GetKuberStubRoutes()...)
+	mux.RegisterRoutes(handler.GetKuberStubRoutes(pool)...)
 	mux.RegisterRoutes(restaurantsTransport.Routes()...)
 
 	logger.Info("initializing server")
