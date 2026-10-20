@@ -19,7 +19,7 @@ func testMenuItem() domain.MenuItem {
 	return domain.NewMenuItem(uuid.New(), "spicy chicken", "classic", 400, "RUB", true)
 }
 
-func TestCreateOrReplaceRestaurant_CreateNew(t *testing.T) {
+func TestRestaurantsRepository_CreateOrReplaceRestaurant_CreatesRestaurant(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRestaurantsRepository()
 
@@ -33,7 +33,7 @@ func TestCreateOrReplaceRestaurant_CreateNew(t *testing.T) {
 	assert.Equal(t, restaurant, r)
 }
 
-func TestCreateOrReplaceRestaurant_ReplaceKeepsData(t *testing.T) {
+func TestRestaurantsRepository_CreateOrReplaceRestaurant_ReplaceWithoutDuplicate(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRestaurantsRepository()
 
@@ -68,34 +68,34 @@ func TestCreateOrReplaceRestaurant_ReplaceKeepsData(t *testing.T) {
 	assert.Equal(t, changedRestaurant, r)
 }
 
-func TestCreateOrReplaceRestaurant_ReplaceKeepsMenu(t *testing.T) {
+func TestRestaurantsRepository_CreateOrReplaceRestaurant_ReplaceKeepsItems(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRestaurantsRepository()
 
-	r := testRestaurant()
-	_, err := repo.CreateOrReplaceRestaurant(ctx, r)
+	restaurant := testRestaurant()
+	_, err := repo.CreateOrReplaceRestaurant(ctx, restaurant)
 	require.NoError(t, err)
 
-	_, err = repo.PutMenuItem(ctx, r.ID, testMenuItem())
+	_, err = repo.PutMenuItem(ctx, restaurant.ID, testMenuItem())
 	require.NoError(t, err)
-	_, err = repo.PutMenuItem(ctx, r.ID, testMenuItem())
+	_, err = repo.PutMenuItem(ctx, restaurant.ID, testMenuItem())
 	require.NoError(t, err)
 
-	items, err := repo.GetMenuItems(ctx, r.ID)
+	items, err := repo.GetMenuItems(ctx, restaurant.ID)
 	require.NoError(t, err)
 	itemsCount := len(items)
 
 	newr := domain.NewRestaurant(
-		r.ID,
-		r.Name,
-		r.AcceptingOrders,
-		r.MinimumOrderMinor,
-		r.Currency,
+		restaurant.ID,
+		restaurant.Name,
+		restaurant.AcceptingOrders,
+		restaurant.MinimumOrderMinor,
+		restaurant.Currency,
 	)
 	newr.AcceptingOrders = false
 	repo.CreateOrReplaceRestaurant(ctx, newr)
 
-	newItems, err := repo.GetMenuItems(ctx, r.ID)
+	newItems, err := repo.GetMenuItems(ctx, restaurant.ID)
 	require.NoError(t, err)
 	newItemsCount := len(newItems)
 
@@ -103,7 +103,7 @@ func TestCreateOrReplaceRestaurant_ReplaceKeepsMenu(t *testing.T) {
 	assert.Equal(t, items, newItems)
 }
 
-func TestPutMenuItem_CreateNew(t *testing.T) {
+func TestRestaurantsRepository_PutMenuItem_CreatesItem(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRestaurantsRepository()
 
@@ -121,23 +121,23 @@ func TestPutMenuItem_CreateNew(t *testing.T) {
 	assert.Equal(t, item, i)
 }
 
-func TestIsolatedMenuItems(t *testing.T) {
+func TestRestaurantsRepository_GetMenuItem_IsolatedMenuItems(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRestaurantsRepository()
 
-	r1 := testRestaurant()
-	_, err := repo.CreateOrReplaceRestaurant(ctx, r1)
+	restaurant1 := testRestaurant()
+	_, err := repo.CreateOrReplaceRestaurant(ctx, restaurant1)
 	require.NoError(t, err)
 
-	r2 := testRestaurant()
-	_, err = repo.CreateOrReplaceRestaurant(ctx, r2)
+	restaurant2 := testRestaurant()
+	_, err = repo.CreateOrReplaceRestaurant(ctx, restaurant2)
 	require.NoError(t, err)
 
 	i := testMenuItem()
-	_, err = repo.PutMenuItem(ctx, r1.ID, i)
+	_, err = repo.PutMenuItem(ctx, restaurant1.ID, i)
 	require.NoError(t, err)
 
-	_, err = repo.GetMenuItem(ctx, r2.ID, i.ID)
+	_, err = repo.GetMenuItem(ctx, restaurant2.ID, i.ID)
 	require.ErrorIs(t, err, domain.ErrMenuItemNotFound)
 }
 
@@ -145,8 +145,8 @@ func TestNotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRestaurantsRepository()
 
-	r := testRestaurant()
-	_, err := repo.CreateOrReplaceRestaurant(ctx, r)
+	restaurant := testRestaurant()
+	_, err := repo.CreateOrReplaceRestaurant(ctx, restaurant)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -181,7 +181,7 @@ func TestNotFound(t *testing.T) {
 		{
 			name: "get unknown item of existing restaurant",
 			f: func() error {
-				_, err := repo.GetMenuItem(ctx, r.ID, uuid.New())
+				_, err := repo.GetMenuItem(ctx, restaurant.ID, uuid.New())
 				return err
 			},
 			wantErr: domain.ErrMenuItemNotFound,
@@ -203,20 +203,20 @@ func TestNotFound(t *testing.T) {
 	}
 }
 
-func TestGetMenuItems_NoItems(t *testing.T) {
+func TestRestaurantsRepository_GetMenuItems_Empty(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRestaurantsRepository()
 
-	r := testRestaurant()
-	_, err := repo.CreateOrReplaceRestaurant(ctx, r)
+	restaurant := testRestaurant()
+	_, err := repo.CreateOrReplaceRestaurant(ctx, restaurant)
 	require.NoError(t, err)
 
-	items, err := repo.GetMenuItems(ctx, r.ID)
+	items, err := repo.GetMenuItems(ctx, restaurant.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []domain.MenuItem{}, items)
 }
 
-func TestRepo_ConcurrentAcces(t *testing.T) {
+func TestRestaurantsRepository_ConcurrentAccess(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRestaurantsRepository()
 

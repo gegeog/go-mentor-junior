@@ -2,8 +2,6 @@
 
 package handler
 
-//go:generate minimock -i github.com/gegeog/go-mentor-junior/services/restaurant/internal/api/handler.RestaurantService -o restaurant_service_mock_test.go -n RestaurantServiceMock -p handler
-
 import (
 	"context"
 	"sync"

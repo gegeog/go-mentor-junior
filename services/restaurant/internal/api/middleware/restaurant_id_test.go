@@ -75,7 +75,7 @@ func TestRestaurantID(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			h := RestaurantID(zap.NewNop())(handler)
+			wraped := RestaurantID(zap.NewNop())(handler)
 
 			req := httptest.NewRequest(
 				http.MethodPut,
@@ -87,17 +87,17 @@ func TestRestaurantID(t *testing.T) {
 				req.Header.Set("X-Restaurant-ID", tt.header)
 			}
 
-			rec := httptest.NewRecorder()
-			h.ServeHTTP(rec, req)
+			recorder := httptest.NewRecorder()
+			wraped.ServeHTTP(recorder, req)
 
-			require.Equal(t, tt.wantStatus, rec.Code)
+			require.Equal(t, tt.wantStatus, recorder.Code)
 
 			callExpected := tt.wantCode == ""
 			assert.Equal(t, callExpected, handlerCalled)
 
 			if tt.wantCode != "" {
 				var body response.ErrorResponseDTO
-				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+				require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
 				assert.Equal(t, tt.wantCode, body.Error.Code)
 			}
 		})

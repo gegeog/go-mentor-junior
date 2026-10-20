@@ -38,17 +38,17 @@ func TestPanic(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := Panic(zap.NewNop())
-			h := m(tt.handler)
+			middleware := Panic(zap.NewNop())
+			handler := middleware(tt.handler)
 
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
-			rec := httptest.NewRecorder()
-			h.ServeHTTP(rec, req)
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, req)
 
-			require.Equal(t, tt.wantStatus, rec.Code)
+			require.Equal(t, tt.wantStatus, recorder.Code)
 			if tt.wantCode != "" {
 				var body response.ErrorResponseDTO
-				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+				require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
 				assert.Equal(t, tt.wantCode, body.Error.Code)
 			}
 		})
