@@ -14,8 +14,9 @@ import (
 	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/api/middleware"
 	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/config"
 	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/logger"
-	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/provider/memory"
+	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/provider/postgres"
 	"github.com/gegeog/go-mentor-junior/services/restaurant/internal/service"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
@@ -25,14 +26,39 @@ func main() {
 	logger := logger.NewLogger(cfg.Logger)
 	defer logger.Sync()
 
-	logger.Info("initializing restaurants service")
-	restaurantsRepository := memory.NewRestaurantsRepository()
+	ctx := context.Background()
+
+	logger.Info("initializing repo")
+	pgxConfig, err := pgxpool.ParseConfig(cfg.Postgres.URL())
+	if err != nil {
+		logger.Error("failed to parse postgres connection string", zap.Error(err))
+		os.Exit(1)
+	}
+
+	pool, err := pgxpool.NewWithConfig(ctx, pgxConfig)
+	if err != nil {
+		logger.Error("can not create pgx pool", zap.Error(err))
+		os.Exit(1)
+	}
+
+	if err := pool.Ping(ctx); err != nil {
+		logger.Error("can not ping pool", zap.Error(err))
+		os.Exit(1)
+	}
+
+	defer pool.Close()
+
+	restaurantsRepository := postgres.NewRestaurantsRepository(pool)
+
+	logger.Info("initializing service")
 	restaurantsService := service.NewRestaurantsService(restaurantsRepository)
+
+	logger.Info("initializing transport")
 	restaurantsTransport := handler.NewRestaurantHTTPHandler(restaurantsService, logger)
 
 	logger.Info("initializing router")
 	mux := api.NewRouter()
-	mux.RegisterRoutes(handler.GetKuberStubRoutes()...)
+	mux.RegisterRoutes(handler.GetKuberStubRoutes(pool)...)
 	mux.RegisterRoutes(restaurantsTransport.Routes()...)
 
 	logger.Info("initializing server")
@@ -41,9 +67,6 @@ func main() {
 		Handler: middleware.ChainMiddleware(
 			mux,
 			middleware.RequestID(),
-			// TODO: я убрал логгер из контекста и передаю теперь прямо в мидлварю и в хэндлеры...
-			// и мне кажется это решение более громоздким...правки хэндлеров??
-			// хотя наверняка позже пойму преимущества когда будем с otel работать
 			middleware.Trace(logger),
 			middleware.Panic(logger),
 		),

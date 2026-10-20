@@ -28,3 +28,18 @@ coverage:
 
 generate:
 	@go generate ./...
+
+migrate-up:
+	@docker compose run --rm migrator up
+
+migrate-down:
+	@docker compose run --rm migrator down
+
+env-up:
+	@docker compose up -d restaurants-postgres
+
+env-down:
+	@docker compose down restaurants-postgres
+
+env-cleanup:
+	@docker compose down -v restaurants-postgres

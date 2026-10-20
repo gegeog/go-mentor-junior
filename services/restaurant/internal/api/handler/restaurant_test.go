@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -47,9 +49,9 @@ func TestRestaurantHTTPHandler_GetRestaurant_OK(t *testing.T) {
 
 func TestKubernetesStubRoutes(t *testing.T) {
 	router := api.NewRouter()
-	router.RegisterRoutes(GetKuberStubRoutes()...)
+	router.RegisterRoutes(GetKuberStubRoutes(fakePinger{})...)
 
-	paths := []string{"/livez", "/readyz"}
+	paths := []string{"/livez"}
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, path, nil)
@@ -61,6 +63,36 @@ func TestKubernetesStubRoutes(t *testing.T) {
 			assert.Empty(t, recorder.Body.Bytes())
 		})
 	}
+}
+
+type fakePinger struct {
+	err error
+}
+
+func (f fakePinger) Ping(context.Context) error {
+	return f.err
+}
+
+func TestReadyz_PingError(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rec := httptest.NewRecorder()
+
+	p := fakePinger{err: errors.New("err")}
+	readyzHandler(p)(rec, req)
+
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.Empty(t, rec.Body.String())
+}
+
+func TestReadyz_OK(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rec := httptest.NewRecorder()
+
+	p := fakePinger{err: nil}
+	readyzHandler(p)(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Empty(t, rec.Body.String())
 }
 
 func TestRestaurantHTTPHandler_GetRestaurant_InvalidPath(t *testing.T) {
