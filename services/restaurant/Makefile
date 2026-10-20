@@ -27,8 +27,7 @@ coverage:
 	@rm -f coverage.out
 
 generate:
-	@go generate ${SERVICE_ROOT}/internal/api/handler/restaurant.go
-	@go generate ${SERVICE_ROOT}/internal/service/restaurants.go
+	@go generate ./...
 
 migrate-up:
 	@docker compose run --rm migrator up

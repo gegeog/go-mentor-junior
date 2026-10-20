@@ -2,8 +2,6 @@
 
 package service
 
-//go:generate minimock -i github.com/gegeog/go-mentor-junior/services/restaurant/internal/service.RestaurantsRepository -o restaurants_repository_mock_test.go -n RestaurantsRepositoryMock -p service
-
 import (
 	"context"
 	"sync"

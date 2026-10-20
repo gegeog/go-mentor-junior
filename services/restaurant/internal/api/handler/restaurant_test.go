@@ -20,32 +20,31 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestGetRestaurant_OK(t *testing.T) {
-	rid := uuid.New()
-	restaurant := domain.NewRestaurant(rid, "kfc", true, 1000, "USD")
-	svc := NewRestaurantServiceMock(t)
+func TestRestaurantHTTPHandler_GetRestaurant_OK(t *testing.T) {
+	restaurantID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
+	restaurant := domain.NewRestaurant(restaurantID, "kfc", true, 1000, "USD")
 
+	svc := NewRestaurantServiceMock(t)
 	svc.GetRestaurantMock.
-		Expect(minimock.AnyContext, rid).
+		Expect(minimock.AnyContext, restaurantID).
 		Return(restaurant, nil)
 
-	h := NewRestaurantHTTPHandler(svc, zap.NewNop())
-	req := httptest.NewRequest(http.MethodGet, "/restaurants/"+rid.String(), nil)
-	req.SetPathValue("restaurant_id", rid.String())
+	handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
+	req := httptest.NewRequest(http.MethodGet, "/restaurants/"+restaurantID.String(), nil)
+	req.SetPathValue("restaurant_id", restaurantID.String())
 
-	rec := httptest.NewRecorder()
+	recorder := httptest.NewRecorder()
+	handler.GetRestaurant(recorder, req)
 
-	h.GetRestaurant(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 	assert.JSONEq(t, `{
-			"id": "`+rid.String()+`",
+			"id": "11111111-1111-4111-8111-111111111111",
 			"name": "kfc",
 			"accepting_orders": true,
 			"minimum_order_minor": 1000,
 			"currency": "USD"
-		}`, rec.Body.String())
+		}`, recorder.Body.String())
 }
 
 func TestKubernetesStubRoutes(t *testing.T) {
@@ -56,12 +55,12 @@ func TestKubernetesStubRoutes(t *testing.T) {
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, path, nil)
-			rec := httptest.NewRecorder()
+			recorder := httptest.NewRecorder()
 
-			router.ServeHTTP(rec, req)
+			router.ServeHTTP(recorder, req)
 
-			assert.Equal(t, http.StatusOK, rec.Code)
-			assert.Empty(t, rec.Body.Bytes())
+			assert.Equal(t, http.StatusOK, recorder.Code)
+			assert.Empty(t, recorder.Body.Bytes())
 		})
 	}
 }
@@ -96,128 +95,127 @@ func TestReadyz_OK(t *testing.T) {
 	assert.Empty(t, rec.Body.String())
 }
 
-func TestGetRestaurant_InvalidPath(t *testing.T) {
+func TestRestaurantHTTPHandler_GetRestaurant_InvalidPath(t *testing.T) {
 	svc := NewRestaurantServiceMock(t)
-	h := NewRestaurantHTTPHandler(svc, zap.NewNop())
+	handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
 
 	req := httptest.NewRequest(http.MethodGet, "/restaurants/123", nil)
 	req.SetPathValue("restaurant_id", "123")
 
-	rec := httptest.NewRecorder()
+	recorder := httptest.NewRecorder()
 
-	h.GetRestaurant(rec, req)
+	handler.GetRestaurant(recorder, req)
 
-	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
 	var body response.ErrorResponseDTO
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
 	assert.Equal(t, "INVALID_RESTAURANT", body.Error.Code)
 }
 
-func TestGetRestaurant_NotFound(t *testing.T) {
+func TestRestaurantHTTPHandler_GetRestaurant_NotFound(t *testing.T) {
 	svc := NewRestaurantServiceMock(t)
 	svc.GetRestaurantMock.Return(domain.Restaurant{}, domain.ErrRestaurantNotFound)
-	h := NewRestaurantHTTPHandler(svc, zap.NewNop())
+	handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
 
-	rid := uuid.New()
-	req := httptest.NewRequest(http.MethodGet, "/restaurants/"+rid.String(), nil)
-	req.SetPathValue("restaurant_id", rid.String())
+	restaurantID := uuid.New()
+	req := httptest.NewRequest(http.MethodGet, "/restaurants/"+restaurantID.String(), nil)
+	req.SetPathValue("restaurant_id", restaurantID.String())
 
-	rec := httptest.NewRecorder()
+	recorder := httptest.NewRecorder()
 
-	h.GetRestaurant(rec, req)
+	handler.GetRestaurant(recorder, req)
 
-	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.Equal(t, http.StatusNotFound, recorder.Code)
 	var body response.ErrorResponseDTO
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
 	assert.Equal(t, "RESTAURANT_NOT_FOUND", body.Error.Code)
 }
 
-func TestGetRestaurants_Empty(t *testing.T) {
+func TestRestaurantHTTPHandler_GetRestaurants_Empty(t *testing.T) {
 	svc := NewRestaurantServiceMock(t)
 	svc.GetRestaurantsMock.Return([]domain.Restaurant{}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/restaurants", nil)
-	rec := httptest.NewRecorder()
+	recorder := httptest.NewRecorder()
 
-	h := NewRestaurantHTTPHandler(svc, zap.NewNop())
-	h.GetRestaurants(rec, req)
+	handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
+	handler.GetRestaurants(recorder, req)
 
-	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, http.StatusOK, recorder.Code)
 
 	var body RestaurantsResponseDTO
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
 	assert.Empty(t, body.Restaurants)
 }
 
-func TestGetRestaurants_OK(t *testing.T) {
-	r1 := domain.NewRestaurant(uuid.New(), "kfc", true, 1000, "USD")
-	r2 := domain.NewRestaurant(uuid.New(), "mcd", false, 500, "RUB")
+func TestRestaurantHTTPHandler_GetRestaurants_OK(t *testing.T) {
+	kfc := domain.NewRestaurant(uuid.New(), "kfc", true, 1000, "USD")
+	mcdonalds := domain.NewRestaurant(uuid.New(), "mcd", false, 500, "RUB")
 
 	svc := NewRestaurantServiceMock(t)
-	svc.GetRestaurantsMock.Return([]domain.Restaurant{r1, r2}, nil)
+	svc.GetRestaurantsMock.Return([]domain.Restaurant{kfc, mcdonalds}, nil)
 
-	h := NewRestaurantHTTPHandler(svc, zap.NewNop())
+	handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
 	req := httptest.NewRequest(http.MethodGet, "/restaurants", nil)
-	rec := httptest.NewRecorder()
+	recorder := httptest.NewRecorder()
 
-	h.GetRestaurants(rec, req)
+	handler.GetRestaurants(recorder, req)
 
-	require.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 	assert.JSONEq(t, `{
 		"restaurants": [
 			{
-				"id": "`+r1.ID.String()+`",
+				"id": "`+kfc.ID.String()+`",
 				"name": "kfc",
 				"accepting_orders": true,
 				"minimum_order_minor": 1000,
 				"currency": "USD"
 			},
 			{
-				"id": "`+r2.ID.String()+`",
+				"id": "`+mcdonalds.ID.String()+`",
 				"name": "mcd",
 				"accepting_orders": false,
 				"minimum_order_minor": 500,
 				"currency": "RUB"
 			}
 		]
-	}`, rec.Body.String())
+	}`, recorder.Body.String())
 }
 
-func TestGetItem_OK(t *testing.T) {
-	rid := uuid.New()
-	iid := uuid.New()
-	item := domain.NewMenuItem(iid, "wings", "spicy", 500, "USD", true)
+func TestRestaurantHTTPHandler_GetItem_OK(t *testing.T) {
+	restaurantID := uuid.New()
+	itemID := uuid.New()
+	item := domain.NewMenuItem(itemID, "wings", "spicy", 500, "USD", true)
 
 	svc := NewRestaurantServiceMock(t)
-
 	svc.GetItemMock.
-		Expect(minimock.AnyContext, rid, iid).
+		Expect(minimock.AnyContext, restaurantID, itemID).
 		Return(item, nil)
 
-	reqPath := fmt.Sprintf("/restaurants/%s/menu/%s", rid.String(), iid.String())
+	reqPath := fmt.Sprintf("/restaurants/%s/menu/%s", restaurantID.String(), itemID.String())
 	req := httptest.NewRequest(http.MethodGet, reqPath, nil)
-	req.SetPathValue("restaurant_id", rid.String())
-	req.SetPathValue("menu_item_id", iid.String())
+	req.SetPathValue("restaurant_id", restaurantID.String())
+	req.SetPathValue("menu_item_id", itemID.String())
 
-	rec := httptest.NewRecorder()
+	recorder := httptest.NewRecorder()
 
-	h := NewRestaurantHTTPHandler(svc, zap.NewNop())
-	h.GetItem(rec, req)
+	handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
+	handler.GetItem(recorder, req)
 
-	require.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 	assert.JSONEq(t, `{
-    "id": "`+iid.String()+`",
+    "id": "`+itemID.String()+`",
     "name": "wings",
     "description": "spicy",
     "price_minor": 500,
     "currency": "USD",
     "available": true
-	}`, rec.Body.String())
+	}`, recorder.Body.String())
 }
 
-func TestGetItem_Errors(t *testing.T) {
+func TestRestaurantHTTPHandler_GetItem_Errors(t *testing.T) {
 	tests := []struct {
 		name       string
 		setup      func(*RestaurantServiceMock)
@@ -229,14 +227,14 @@ func TestGetItem_Errors(t *testing.T) {
 			name:  "invalid restaurant uuid",
 			setup: func(rsm *RestaurantServiceMock) {},
 			req: func() *http.Request {
-				id := uuid.New()
+				itemID := uuid.New()
 				req := httptest.NewRequest(
 					http.MethodGet,
-					"/restaurants/123/menu/"+id.String(),
+					"/restaurants/123/menu/"+itemID.String(),
 					nil,
 				)
 				req.SetPathValue("restaurant_id", "123")
-				req.SetPathValue("menu_item_id", id.String())
+				req.SetPathValue("menu_item_id", itemID.String())
 
 				return req
 			},
@@ -247,13 +245,13 @@ func TestGetItem_Errors(t *testing.T) {
 			name:  "invalid menu item uuid",
 			setup: func(rsm *RestaurantServiceMock) {},
 			req: func() *http.Request {
-				id := uuid.New()
+				restaurantID := uuid.New()
 				req := httptest.NewRequest(
 					http.MethodGet,
-					"/restaurants/"+id.String()+"/menu/123",
+					"/restaurants/"+restaurantID.String()+"/menu/123",
 					nil,
 				)
-				req.SetPathValue("restaurant_id", id.String())
+				req.SetPathValue("restaurant_id", restaurantID.String())
 				req.SetPathValue("menu_item_id", "123")
 
 				return req
@@ -267,15 +265,15 @@ func TestGetItem_Errors(t *testing.T) {
 				rsm.GetItemMock.Return(domain.MenuItem{}, domain.ErrRestaurantNotFound)
 			},
 			req: func() *http.Request {
-				rid := uuid.New()
-				iid := uuid.New()
+				restaurantID := uuid.New()
+				itemID := uuid.New()
 				req := httptest.NewRequest(
 					http.MethodGet,
-					"/restaurants/"+rid.String()+"/menu/"+iid.String(),
+					"/restaurants/"+restaurantID.String()+"/menu/"+itemID.String(),
 					nil,
 				)
-				req.SetPathValue("restaurant_id", rid.String())
-				req.SetPathValue("menu_item_id", iid.String())
+				req.SetPathValue("restaurant_id", restaurantID.String())
+				req.SetPathValue("menu_item_id", itemID.String())
 
 				return req
 			},
@@ -288,15 +286,15 @@ func TestGetItem_Errors(t *testing.T) {
 				rsm.GetItemMock.Return(domain.MenuItem{}, domain.ErrMenuItemNotFound)
 			},
 			req: func() *http.Request {
-				rid := uuid.New()
-				iid := uuid.New()
+				restaurantID := uuid.New()
+				itemID := uuid.New()
 				req := httptest.NewRequest(
 					http.MethodGet,
-					"/restaurants/"+rid.String()+"/menu/"+iid.String(),
+					"/restaurants/"+restaurantID.String()+"/menu/"+itemID.String(),
 					nil,
 				)
-				req.SetPathValue("restaurant_id", rid.String())
-				req.SetPathValue("menu_item_id", iid.String())
+				req.SetPathValue("restaurant_id", restaurantID.String())
+				req.SetPathValue("menu_item_id", itemID.String())
 
 				return req
 			},
@@ -311,22 +309,22 @@ func TestGetItem_Errors(t *testing.T) {
 			tt.setup(svc)
 
 			req := tt.req()
-			rec := httptest.NewRecorder()
+			recorder := httptest.NewRecorder()
 
-			h := NewRestaurantHTTPHandler(svc, zap.NewNop())
-			h.GetItem(rec, req)
+			handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
+			handler.GetItem(recorder, req)
 
-			require.Equal(t, tt.wantStatus, rec.Code)
-			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+			require.Equal(t, tt.wantStatus, recorder.Code)
+			assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 
 			var body response.ErrorResponseDTO
-			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
 			assert.Equal(t, tt.wantCode, body.Error.Code)
 		})
 	}
 }
 
-func TestGetItems_OK(t *testing.T) {
+func TestRestaurantHTTPHandler_GetItems_OK(t *testing.T) {
 	wingsID := uuid.New()
 	wings := domain.NewMenuItem(wingsID, "wings", "spicy", 500, "USD", true)
 	sauceID := uuid.New()
@@ -341,18 +339,18 @@ func TestGetItems_OK(t *testing.T) {
 		{
 			name: "not empty list",
 			req: func() (*http.Request, uuid.UUID) {
-				rid := uuid.New()
-				req := httptest.NewRequest(http.MethodGet, "/restaurants/"+rid.String()+"/menu", nil)
-				req.SetPathValue("restaurant_id", rid.String())
-				return req, rid
+				restaurantID := uuid.New()
+				req := httptest.NewRequest(http.MethodGet, "/restaurants/"+restaurantID.String()+"/menu", nil)
+				req.SetPathValue("restaurant_id", restaurantID.String())
+				return req, restaurantID
 			},
 			setup: func(m *RestaurantServiceMock) {
 				m.GetItemsMock.Return([]domain.MenuItem{wings, sauce}, nil)
 			},
 			wantStatus: http.StatusOK,
-			wantBody: func(rid uuid.UUID) string {
+			wantBody: func(restaurantID uuid.UUID) string {
 				return `{
-					"restaurant_id": "` + rid.String() + `",
+					"restaurant_id": "` + restaurantID.String() + `",
 					"items": [
 						{
 							"id": "` + wingsID.String() + `",
@@ -377,18 +375,18 @@ func TestGetItems_OK(t *testing.T) {
 		{
 			name: "empty list",
 			req: func() (*http.Request, uuid.UUID) {
-				rid := uuid.New()
-				req := httptest.NewRequest(http.MethodGet, "/restaurants/"+rid.String()+"/menu", nil)
-				req.SetPathValue("restaurant_id", rid.String())
-				return req, rid
+				restaurantID := uuid.New()
+				req := httptest.NewRequest(http.MethodGet, "/restaurants/"+restaurantID.String()+"/menu", nil)
+				req.SetPathValue("restaurant_id", restaurantID.String())
+				return req, restaurantID
 			},
 			setup: func(m *RestaurantServiceMock) {
 				m.GetItemsMock.Return([]domain.MenuItem{}, nil)
 			},
 			wantStatus: http.StatusOK,
-			wantBody: func(rid uuid.UUID) string {
+			wantBody: func(restaurantID uuid.UUID) string {
 				return `{
-					"restaurant_id": "` + rid.String() + `",
+					"restaurant_id": "` + restaurantID.String() + `",
 					"items": []
 				}`
 			},
@@ -399,17 +397,17 @@ func TestGetItems_OK(t *testing.T) {
 			svc := NewRestaurantServiceMock(t)
 			tt.setup(svc)
 			req, rid := tt.req()
-			rec := httptest.NewRecorder()
-			h := NewRestaurantHTTPHandler(svc, zap.NewNop())
-			h.GetItems(rec, req)
-			require.Equal(t, tt.wantStatus, rec.Code)
-			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
-			assert.JSONEq(t, tt.wantBody(rid), rec.Body.String())
+			recorder := httptest.NewRecorder()
+			handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
+			handler.GetItems(recorder, req)
+			require.Equal(t, tt.wantStatus, recorder.Code)
+			assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
+			assert.JSONEq(t, tt.wantBody(rid), recorder.Body.String())
 		})
 	}
 }
 
-func TestGetItems_Error(t *testing.T) {
+func TestRestaurantHTTPHandler_GetItems_Error(t *testing.T) {
 	tests := []struct {
 		name       string
 		req        func() *http.Request
@@ -431,9 +429,9 @@ func TestGetItems_Error(t *testing.T) {
 		{
 			name: "restaurant not found",
 			req: func() *http.Request {
-				rid := uuid.New()
-				req := httptest.NewRequest(http.MethodGet, "/restaurants/"+rid.String()+"/menu", nil)
-				req.SetPathValue("restaurant_id", rid.String())
+				restaurantID := uuid.New()
+				req := httptest.NewRequest(http.MethodGet, "/restaurants/"+restaurantID.String()+"/menu", nil)
+				req.SetPathValue("restaurant_id", restaurantID.String())
 				return req
 			},
 			setup: func(m *RestaurantServiceMock) {
@@ -452,19 +450,19 @@ func TestGetItems_Error(t *testing.T) {
 			h := NewRestaurantHTTPHandler(svc, zap.NewNop())
 
 			req := tt.req()
-			rec := httptest.NewRecorder()
+			recorder := httptest.NewRecorder()
 
-			h.GetItems(rec, req)
+			h.GetItems(recorder, req)
 
-			require.Equal(t, tt.wantStatus, rec.Code)
+			require.Equal(t, tt.wantStatus, recorder.Code)
 			var body response.ErrorResponseDTO
-			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
 			assert.Equal(t, tt.wantCode, body.Error.Code)
 		})
 	}
 }
 
-func TestPutRestaurant_Errors(t *testing.T) {
+func TestRestaurantHTTPHandler_PutRestaurant_Errors(t *testing.T) {
 	validBody := `{
 		"name": "kfc",
 		"accepting_orders": true,
@@ -590,22 +588,22 @@ func TestPutRestaurant_Errors(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPut, "/restaurants/"+pathID, strings.NewReader(tt.reqBody))
 			req.SetPathValue("restaurant_id", pathID)
-			rec := httptest.NewRecorder()
+			recorder := httptest.NewRecorder()
 
-			h := NewRestaurantHTTPHandler(svc, zap.NewNop())
-			h.PutRestaurant(rec, req)
+			handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
+			handler.PutRestaurant(recorder, req)
 
-			require.Equal(t, tt.wantStatus, rec.Code)
-			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+			require.Equal(t, tt.wantStatus, recorder.Code)
+			assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 
 			var body response.ErrorResponseDTO
-			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
 			assert.Equal(t, tt.wantCode, body.Error.Code)
 		})
 	}
 }
 
-func TestPutRestaurant_OK(t *testing.T) {
+func TestRestaurantHTTPHandler_PutRestaurant_OK(t *testing.T) {
 	body := `{
     	"name":"kfc",
     	"accepting_orders":true,
@@ -613,59 +611,59 @@ func TestPutRestaurant_OK(t *testing.T) {
     	"currency":"USD"
 	}`
 
-	rid := uuid.New()
-	restaurant := domain.NewRestaurant(rid, "kfc", true, 1000, "USD")
+	restaurantID := uuid.New()
+	restaurant := domain.NewRestaurant(restaurantID, "kfc", true, 1000, "USD")
 
 	svc := NewRestaurantServiceMock(t)
 	svc.PutRestaurantMock.Return(restaurant, nil)
 
-	h := NewRestaurantHTTPHandler(svc, zap.NewNop())
-	req := httptest.NewRequest(http.MethodPut, "/restaurants/"+rid.String(), strings.NewReader(body))
-	req.SetPathValue("restaurant_id", rid.String())
-	rec := httptest.NewRecorder()
+	handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
+	req := httptest.NewRequest(http.MethodPut, "/restaurants/"+restaurantID.String(), strings.NewReader(body))
+	req.SetPathValue("restaurant_id", restaurantID.String())
+	recorder := httptest.NewRecorder()
 
-	h.PutRestaurant(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	handler.PutRestaurant(recorder, req)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 	assert.JSONEq(t, `{
-			"id": "`+rid.String()+`",
+			"id": "`+restaurantID.String()+`",
 			"name": "kfc",
 			"accepting_orders": true,
 			"minimum_order_minor":1000,
 			"currency":"USD"
-		}`, rec.Body.String())
+		}`, recorder.Body.String())
 }
 
-func TestPutItem_Errors(t *testing.T) {
+func TestRestaurantHTTPHandler_PutMenuItem_Errors(t *testing.T) {
 	tests := []struct {
-		name       string
-		rPathID    string
-		iPathID    string
-		reqBody    string
-		setup      func(m *RestaurantServiceMock)
-		wantStatus int
-		wantCode   string
+		name             string
+		restaurantPathID string
+		itemPathID       string
+		reqBody          string
+		setup            func(m *RestaurantServiceMock)
+		wantStatus       int
+		wantCode         string
 	}{
 		{
-			name:       "invalid restaurant uuid",
-			rPathID:    "not-a-uuid",
-			iPathID:    "uuid",
-			setup:      func(m *RestaurantServiceMock) {},
-			wantStatus: http.StatusBadRequest,
-			wantCode:   "INVALID_RESTAURANT",
+			name:             "invalid restaurant uuid",
+			restaurantPathID: "not-a-uuid",
+			itemPathID:       "uuid",
+			setup:            func(m *RestaurantServiceMock) {},
+			wantStatus:       http.StatusBadRequest,
+			wantCode:         "INVALID_RESTAURANT",
 		},
 		{
-			name:       "invalid item uuid",
-			rPathID:    uuid.New().String(),
-			iPathID:    "not-a-uuid",
-			setup:      func(m *RestaurantServiceMock) {},
-			wantStatus: http.StatusBadRequest,
-			wantCode:   "INVALID_MENU_ITEM",
+			name:             "invalid item uuid",
+			restaurantPathID: uuid.New().String(),
+			itemPathID:       "not-a-uuid",
+			setup:            func(m *RestaurantServiceMock) {},
+			wantStatus:       http.StatusBadRequest,
+			wantCode:         "INVALID_MENU_ITEM",
 		},
 		{
-			name:    "empty name",
-			rPathID: uuid.New().String(),
-			iPathID: uuid.New().String(),
+			name:             "empty name",
+			restaurantPathID: uuid.New().String(),
+			itemPathID:       uuid.New().String(),
 			reqBody: `
 			{
 			    "name":"",
@@ -679,9 +677,9 @@ func TestPutItem_Errors(t *testing.T) {
 			wantCode:   "INVALID_MENU_ITEM",
 		},
 		{
-			name:    "missing field",
-			rPathID: uuid.New().String(),
-			iPathID: uuid.New().String(),
+			name:             "missing field",
+			restaurantPathID: uuid.New().String(),
+			itemPathID:       uuid.New().String(),
 			reqBody: `
 			{
 			   "name":"shefroll",
@@ -694,9 +692,9 @@ func TestPutItem_Errors(t *testing.T) {
 			wantCode:   "INVALID_MENU_ITEM",
 		},
 		{
-			name:    "negative proce minor",
-			rPathID: uuid.New().String(),
-			iPathID: uuid.New().String(),
+			name:             "negative proce minor",
+			restaurantPathID: uuid.New().String(),
+			itemPathID:       uuid.New().String(),
 			reqBody: `
 			{
 			    "name":"shefroll",
@@ -710,9 +708,9 @@ func TestPutItem_Errors(t *testing.T) {
 			wantCode:   "INVALID_MENU_ITEM",
 		},
 		{
-			name:    "two jsons",
-			rPathID: uuid.New().String(),
-			iPathID: uuid.New().String(),
+			name:             "two jsons",
+			restaurantPathID: uuid.New().String(),
+			itemPathID:       uuid.New().String(),
 			reqBody: `
 			{
 			    "name":"shefroll",
@@ -732,9 +730,9 @@ func TestPutItem_Errors(t *testing.T) {
 			wantCode:   "INVALID_MENU_ITEM",
 		},
 		{
-			name:    "restaurant not found",
-			rPathID: uuid.New().String(),
-			iPathID: uuid.New().String(),
+			name:             "restaurant not found",
+			restaurantPathID: uuid.New().String(),
+			itemPathID:       uuid.New().String(),
 			reqBody: `
 			{
 			    "name":"shefroll",
@@ -750,9 +748,9 @@ func TestPutItem_Errors(t *testing.T) {
 			wantCode:   "RESTAURANT_NOT_FOUND",
 		},
 		{
-			name:    "currency mismatch",
-			rPathID: uuid.New().String(),
-			iPathID: uuid.New().String(),
+			name:             "currency mismatch",
+			restaurantPathID: uuid.New().String(),
+			itemPathID:       uuid.New().String(),
 			reqBody: `
 			{
 			    "name":"shefroll",
@@ -774,26 +772,26 @@ func TestPutItem_Errors(t *testing.T) {
 			svc := NewRestaurantServiceMock(t)
 			tt.setup(svc)
 
-			req := httptest.NewRequest(http.MethodPut, "/restaurants/"+tt.rPathID+"/menu/"+tt.iPathID, strings.NewReader(tt.reqBody))
-			req.SetPathValue("restaurant_id", tt.rPathID)
-			req.SetPathValue("menu_item_id", tt.iPathID)
+			req := httptest.NewRequest(http.MethodPut, "/restaurants/"+tt.restaurantPathID+"/menu/"+tt.itemPathID, strings.NewReader(tt.reqBody))
+			req.SetPathValue("restaurant_id", tt.restaurantPathID)
+			req.SetPathValue("menu_item_id", tt.itemPathID)
 
-			rec := httptest.NewRecorder()
+			recorder := httptest.NewRecorder()
 
-			h := NewRestaurantHTTPHandler(svc, zap.NewNop())
-			h.PutMenuItem(rec, req)
+			handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
+			handler.PutMenuItem(recorder, req)
 
-			require.Equal(t, tt.wantStatus, rec.Code)
-			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+			require.Equal(t, tt.wantStatus, recorder.Code)
+			assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 
 			var body response.ErrorResponseDTO
-			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
 			assert.Equal(t, tt.wantCode, body.Error.Code)
 		})
 	}
 }
 
-func TestPutMenuItem_OK(t *testing.T) {
+func TestRestaurantHTTPHandler_PutMenuItem_OK(t *testing.T) {
 	body := `{
 	    "name":"shefroll",
 	    "description":"очень вкусно",
@@ -802,32 +800,32 @@ func TestPutMenuItem_OK(t *testing.T) {
 	    "available":false
 	}`
 
-	iid := uuid.New()
-	item := domain.NewMenuItem(iid, "shefroll", "очень вкусно", 66, "usdt", false)
+	itemID := uuid.New()
+	item := domain.NewMenuItem(itemID, "shefroll", "очень вкусно", 66, "usdt", false)
 
-	rid := uuid.New()
+	restaurantID := uuid.New()
 	svc := NewRestaurantServiceMock(t)
 	svc.PutMenuItemMock.
-		Expect(minimock.AnyContext, rid, item).
+		Expect(minimock.AnyContext, restaurantID, item).
 		Return(item, nil)
 
-	h := NewRestaurantHTTPHandler(svc, zap.NewNop())
+	handler := NewRestaurantHTTPHandler(svc, zap.NewNop())
 
-	req := httptest.NewRequest(http.MethodPut, "/restaurants/"+rid.String()+"/menu/"+iid.String(), strings.NewReader(body))
-	req.SetPathValue("restaurant_id", rid.String())
-	req.SetPathValue("menu_item_id", iid.String())
+	req := httptest.NewRequest(http.MethodPut, "/restaurants/"+restaurantID.String()+"/menu/"+itemID.String(), strings.NewReader(body))
+	req.SetPathValue("restaurant_id", restaurantID.String())
+	req.SetPathValue("menu_item_id", itemID.String())
 
-	rec := httptest.NewRecorder()
+	recorder := httptest.NewRecorder()
 
-	h.PutMenuItem(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	handler.PutMenuItem(recorder, req)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 	assert.JSONEq(t, `{
-			"id": "`+iid.String()+`",
+			"id": "`+itemID.String()+`",
 			"name": "shefroll",
 			"description":"очень вкусно",
 			"price_minor":66,
 		    "currency":"usdt",
 		    "available":false
-		}`, rec.Body.String())
+		}`, recorder.Body.String())
 }

@@ -12,7 +12,7 @@ type RestaurantsService struct {
 	restaurantsRepository RestaurantsRepository
 }
 
-//go:generate go tool minimock -i RestaurantsRepository -o restaurants_repository_mock_test.go
+//go:generate go tool minimock -g -i RestaurantsRepository -o restaurants_repository_mock_test.go
 type RestaurantsRepository interface {
 	CreateOrReplaceRestaurant(
 		ctx context.Context,

@@ -11,31 +11,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPutRestaurant_OK(t *testing.T) {
+func TestRestaurantsService_PutRestaurant_OK(t *testing.T) {
 	repo := NewRestaurantsRepositoryMock(t)
 
-	r := domain.NewRestaurant(uuid.New(), "cafe", true, 1000, "USD")
+	restaurant := domain.NewRestaurant(uuid.New(), "cafe", true, 1000, "USD")
 	repo.GetRestaurantMock.
-		Expect(minimock.AnyContext, r.ID).
+		Expect(minimock.AnyContext, restaurant.ID).
 		Return(domain.Restaurant{}, domain.ErrRestaurantNotFound)
 
 	repo.CreateOrReplaceRestaurantMock.
-		Expect(minimock.AnyContext, r).
-		Return(r, nil)
+		Expect(minimock.AnyContext, restaurant).
+		Return(restaurant, nil)
 
 	svc := NewRestaurantsService(repo)
-	got, err := svc.PutRestaurant(context.Background(), r)
+	got, err := svc.PutRestaurant(context.Background(), restaurant)
 
 	require.NoError(t, err)
-	assert.Equal(t, r, got)
+	assert.Equal(t, restaurant, got)
 }
 
-func TestPutRestaurant_CurrencyMismatch(t *testing.T) {
+func TestRestaurantsService_PutRestaurant_CurrencyMismatch(t *testing.T) {
 	repo := NewRestaurantsRepositoryMock(t)
 
-	rid := uuid.New()
-	existed := domain.NewRestaurant(rid, "cafe", true, 1000, "USD")
-	updated := domain.NewRestaurant(rid, "cafe", true, 1000, "RUB")
+	restaurantID := uuid.New()
+	existed := domain.NewRestaurant(restaurantID, "cafe", true, 1000, "USD")
+	updated := domain.NewRestaurant(restaurantID, "cafe", true, 1000, "RUB")
 
 	repo.GetRestaurantMock.
 		Expect(minimock.AnyContext, existed.ID).
@@ -46,29 +46,29 @@ func TestPutRestaurant_CurrencyMismatch(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrCurrencyMismatch)
 }
 
-func TestPutMenuItem_OK(t *testing.T) {
+func TestRestaurantsService_PutMenuItem_OK(t *testing.T) {
 	repo := NewRestaurantsRepositoryMock(t)
 
-	rid := uuid.New()
-	r := domain.NewRestaurant(rid, "kfc", true, 1000, "USD")
+	restaurantID := uuid.New()
+	restaurant := domain.NewRestaurant(restaurantID, "kfc", true, 1000, "USD")
 	item := domain.NewMenuItem(uuid.New(), "wings", "spicy", 1000, "USD", true)
 
 	repo.GetRestaurantMock.
-		Expect(minimock.AnyContext, rid).
-		Return(r, nil)
+		Expect(minimock.AnyContext, restaurantID).
+		Return(restaurant, nil)
 
 	repo.PutMenuItemMock.
-		Expect(minimock.AnyContext, rid, item).
+		Expect(minimock.AnyContext, restaurantID, item).
 		Return(item, nil)
 
 	svc := NewRestaurantsService(repo)
-	got, err := svc.PutMenuItem(context.Background(), rid, item)
+	got, err := svc.PutMenuItem(context.Background(), restaurantID, item)
 	require.NoError(t, err)
 	assert.Equal(t, item, got)
 }
 
-func TestPutMenuItem_Errors(t *testing.T) {
-	rid := uuid.New()
+func TestRestaurantsService_PutMenuItem_Errors(t *testing.T) {
+	restaurantID := uuid.New()
 	item := domain.NewMenuItem(uuid.New(), "wings", "spicy", 200, "RUB", true)
 
 	tests := []struct {
@@ -86,7 +86,7 @@ func TestPutMenuItem_Errors(t *testing.T) {
 		{
 			name: "currency mismatch",
 			f: func(m *RestaurantsRepositoryMock) {
-				m.GetRestaurantMock.Return(domain.NewRestaurant(rid, "rest", true, 1000, "USD"), nil)
+				m.GetRestaurantMock.Return(domain.NewRestaurant(restaurantID, "rest", true, 1000, "USD"), nil)
 			},
 			wantErr: domain.ErrCurrencyMismatch,
 		},
@@ -98,16 +98,16 @@ func TestPutMenuItem_Errors(t *testing.T) {
 			tt.f(repo)
 
 			svc := NewRestaurantsService(repo)
-			_, err := svc.PutMenuItem(context.Background(), rid, item)
+			_, err := svc.PutMenuItem(context.Background(), restaurantID, item)
 			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
 
-func TestServiceGetters_OK(t *testing.T) {
+func TestRestaurantsService_Getters_OK(t *testing.T) {
 	ctx := context.Background()
-	rid := uuid.New()
-	restaurant := domain.NewRestaurant(rid, "mcdonalds", true, 1000, "USD")
+	restaurantID := uuid.New()
+	restaurant := domain.NewRestaurant(restaurantID, "mcdonalds", true, 1000, "USD")
 	item := domain.NewMenuItem(uuid.New(), "wings", "spicy", 500, "USD", true)
 	restaurants := []domain.Restaurant{
 		domain.NewRestaurant(uuid.New(), "a", true, 100, "USD"),
@@ -124,11 +124,11 @@ func TestServiceGetters_OK(t *testing.T) {
 			name: "get restaurant",
 			setup: func(m *RestaurantsRepositoryMock) {
 				m.GetRestaurantMock.
-					Expect(minimock.AnyContext, rid).
+					Expect(minimock.AnyContext, restaurantID).
 					Return(restaurant, nil)
 			},
 			assert: func(t *testing.T, s *RestaurantsService) {
-				got, err := s.GetRestaurant(ctx, rid)
+				got, err := s.GetRestaurant(ctx, restaurantID)
 				require.NoError(t, err)
 				assert.Equal(t, restaurant, got)
 			},
@@ -159,11 +159,11 @@ func TestServiceGetters_OK(t *testing.T) {
 			name: "get item",
 			setup: func(m *RestaurantsRepositoryMock) {
 				m.GetMenuItemMock.
-					Expect(minimock.AnyContext, rid, item.ID).
+					Expect(minimock.AnyContext, restaurantID, item.ID).
 					Return(item, nil)
 			},
 			assert: func(t *testing.T, s *RestaurantsService) {
-				got, err := s.GetItem(ctx, rid, item.ID)
+				got, err := s.GetItem(ctx, restaurantID, item.ID)
 				require.NoError(t, err)
 				assert.Equal(t, item, got)
 			},
@@ -172,11 +172,11 @@ func TestServiceGetters_OK(t *testing.T) {
 			name: "get items",
 			setup: func(m *RestaurantsRepositoryMock) {
 				m.GetMenuItemsMock.
-					Expect(minimock.AnyContext, rid).
+					Expect(minimock.AnyContext, restaurantID).
 					Return(items, nil)
 			},
 			assert: func(t *testing.T, s *RestaurantsService) {
-				got, err := s.GetItems(ctx, rid)
+				got, err := s.GetItems(ctx, restaurantID)
 				require.NoError(t, err)
 				assert.Equal(t, items, got)
 			},
@@ -192,10 +192,10 @@ func TestServiceGetters_OK(t *testing.T) {
 	}
 }
 
-func TestServiceGetters_RepoErrors(t *testing.T) {
+func TestRestaurantsService_Getters_RepoErrors(t *testing.T) {
 	ctx := context.Background()
-	rid := uuid.New()
-	iid := uuid.New()
+	restaurantID := uuid.New()
+	itemID := uuid.New()
 
 	tests := []struct {
 		name    string
@@ -209,7 +209,7 @@ func TestServiceGetters_RepoErrors(t *testing.T) {
 				m.GetRestaurantMock.Return(domain.Restaurant{}, domain.ErrRestaurantNotFound)
 			},
 			call: func(s *RestaurantsService) error {
-				_, err := s.GetRestaurant(ctx, rid)
+				_, err := s.GetRestaurant(ctx, restaurantID)
 				return err
 			},
 			wantErr: domain.ErrRestaurantNotFound,
@@ -220,7 +220,7 @@ func TestServiceGetters_RepoErrors(t *testing.T) {
 				m.GetMenuItemMock.Return(domain.MenuItem{}, domain.ErrMenuItemNotFound)
 			},
 			call: func(s *RestaurantsService) error {
-				_, err := s.GetItem(ctx, rid, iid)
+				_, err := s.GetItem(ctx, restaurantID, itemID)
 				return err
 			},
 			wantErr: domain.ErrMenuItemNotFound,
@@ -231,7 +231,7 @@ func TestServiceGetters_RepoErrors(t *testing.T) {
 				m.GetMenuItemMock.Return(domain.MenuItem{}, domain.ErrRestaurantNotFound)
 			},
 			call: func(s *RestaurantsService) error {
-				_, err := s.GetItem(ctx, rid, iid)
+				_, err := s.GetItem(ctx, restaurantID, itemID)
 				return err
 			},
 			wantErr: domain.ErrRestaurantNotFound,
@@ -242,7 +242,7 @@ func TestServiceGetters_RepoErrors(t *testing.T) {
 				m.GetMenuItemsMock.Return(nil, domain.ErrRestaurantNotFound)
 			},
 			call: func(s *RestaurantsService) error {
-				_, err := s.GetItems(ctx, rid)
+				_, err := s.GetItems(ctx, restaurantID)
 				return err
 			},
 			wantErr: domain.ErrRestaurantNotFound,

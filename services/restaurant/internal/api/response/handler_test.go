@@ -73,20 +73,20 @@ func TestErrorResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := httptest.NewRecorder()
+			recorder := httptest.NewRecorder()
 
 			ErrorResponse(
 				zap.NewNop(),
-				rec,
+				recorder,
 				tt.err,
 				"test err msg",
 			)
 
-			require.Equal(t, tt.wantStatus, rec.Code)
-			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+			require.Equal(t, tt.wantStatus, recorder.Code)
+			assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 
 			var body ErrorResponseDTO
-			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
 
 			assert.Equal(t, tt.wantCode, body.Error.Code)
 			assert.Equal(t, "test err msg", body.Error.Message)
