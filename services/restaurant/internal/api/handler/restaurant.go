@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate go tool minimock -i RestaurantService -o restaurant_service_mock_test.go
+//go:generate go tool minimock -g -i RestaurantService -o restaurant_service_mock_test.go
 type RestaurantService interface {
 	PutRestaurant(context.Context, domain.Restaurant) (domain.Restaurant, error)
 	GetRestaurants(context.Context) ([]domain.Restaurant, error)
